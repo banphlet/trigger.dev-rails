@@ -82,7 +82,10 @@ export const ruby = {
             const escapedArgs = escapeShellArguments(commandArgs);
             const shellCommand = buildShellCommand(binPath, escapedArgs, exportStatements, options.cwd);
             return new Promise((resolve, reject) => {
-                const shellPath = process.env.SHELL || "/bin/bash";
+                // Use bash/sh for better compatibility across systems
+                const shellPath = process.env.SHELL?.includes("bash")
+                    ? process.env.SHELL
+                    : "/bin/bash";
                 const proc = spawn(shellCommand, {
                     stdio: ["pipe", "pipe", "pipe"],
                     shell: shellPath,
@@ -161,12 +164,19 @@ function escapeShellArguments(args) {
 }
 /**
  * Build Ruby version manager setup command (RVM or rbenv).
+ * Also ensures common Ruby/gem bin paths are in PATH for container environments.
  */
 function buildRubySetupCommand() {
     const homeDir = process.env.HOME || "~";
     const rvmScript = `${homeDir}/.rvm/scripts/rvm`;
     const rbenvInit = `${homeDir}/.rbenv/bin/rbenv`;
-    return `if [ -f "${rvmScript}" ]; then source "${rvmScript}" 2>/dev/null; elif [ -f "${rbenvInit}" ]; then export PATH="${homeDir}/.rbenv/bin:$PATH"; eval "$(rbenv init - 2>/dev/null)"; fi`;
+    // Ensure common gem/ruby bin paths are in PATH for containers and system installs
+    // /usr/local/bundle/bin - Common in Ruby Docker images
+    // /usr/local/bin - Standard system-wide bin
+    // /usr/bin - System binaries
+    // $GEM_HOME/bin - User gem binaries
+    const ensurePath = `export PATH="/usr/local/bundle/bin:/usr/local/bin:/usr/bin:$GEM_HOME/bin:$PATH"`;
+    return `${ensurePath}; if [ -f "${rvmScript}" ]; then source "${rvmScript}" 2>/dev/null; elif [ -f "${rbenvInit}" ]; then export PATH="${homeDir}/.rbenv/bin:$PATH"; eval "$(rbenv init - 2>/dev/null)"; fi`;
 }
 /**
  * Build the complete shell command to execute.

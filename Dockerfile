@@ -40,3 +40,5 @@ RUN gem install bundler
 RUN ruby --version && bundle --version
 
 # RUN bundle check || bundle install || bundle update
+
+ENTRYPOINT [ "irb" ]
