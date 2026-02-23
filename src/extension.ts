@@ -15,13 +15,13 @@ export type RubyOptions = {
    */
   devRubyBinaryPath?: string;
   /**
-   * The version of Ruby to install in the container (e.g. `"3.2"`, `"3.1.4"`).
+   * The version of Ruby to install in the container (e.g. `"3.2.8"`, `"3.1.4"`, `"3.3.0"`).
    *
    * @remarks
-   * When specified, the exact package `ruby<version>` is installed via apt-get.
-   * If omitted, the default `ruby` package provided by the base image is used.
+   * When specified, RVM (Ruby Version Manager) is used to install the exact Ruby version.
+   * If omitted, defaults to `"3.2.8"`.
    *
-   * Example: `"3.2"` installs the `ruby3.2` apt package.
+   * Example: `"3.2.8"` installs Ruby 3.2.8 via RVM.
    */
   rubyVersion?: string;
   /**
@@ -73,24 +73,31 @@ class RubyExtension implements BuildExtension {
     }
 
     context.logger.debug(`Adding ${this.name} to the build`);
-    const rubyVersion = this.options.rubyVersion ?? "3.2";
-
-    const rubyPackage = `ruby${rubyVersion}`;
+    const rubyVersion = this.options.rubyVersion ?? "3.2.8";
 
     context.addLayer({
       id: "ruby-installation",
       image: {
         instructions: [
-          `RUN apt-get update && apt-get install -y --no-install-recommends ${rubyPackage} && apt-get clean && rm -rf /var/lib/apt/lists/*`,
-          "RUN gem install nokogiri --platform=ruby --no-document -- --use-system-libraries",
-          "RUN gem install pg",
-          "RUN gem install rake",
-          ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
+          // Install dependencies for RVM and Ruby
+          "RUN apt-get update && apt-get install -y --no-install-recommends gnupg2 curl ca-certificates software-properties-common && apt-get clean && rm -rf /var/lib/apt/lists/*",
+          // Add RVM GPG keys
+          "RUN gpg2 --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB || true",
+          // Install RVM
+          "RUN curl -sSL https://get.rvm.io | bash -s stable",
+          // Source RVM and install Ruby
+          `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && rvm install ${rubyVersion} && rvm use ${rubyVersion} --default"`,
+          // Install common gems
+          `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && rvm use ${rubyVersion} && gem install nokogiri --platform=ruby --no-document -- --use-system-libraries"`,
+          `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && rvm use ${rubyVersion} && gem install pg"`,
+          `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && rvm use ${rubyVersion} && gem install rake"`,
+          ...(this.options.scripts?.map((script) => `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && rvm use ${rubyVersion} && ${script}"`) ?? []),
         ],
       },
       deploy: {
         env: {
-          RUBY_BIN_PATH: "/usr/bin/ruby",
+          RUBY_BIN_PATH: `/usr/local/rvm/rubies/ruby-${rubyVersion}/bin/ruby`,
+          PATH: `/usr/local/rvm/rubies/ruby-${rubyVersion}/bin:$PATH`,
         },
         override: true,
       },

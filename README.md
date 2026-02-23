@@ -33,7 +33,7 @@ export default defineConfig({
   build: {
     extensions: [
       rubyExtension({
-        rubyVersion: "3.2",                // Optional: specific Ruby version to install
+        rubyVersion: "3.2.8",                // Optional: specific Ruby version to install via RVM
         devRubyBinaryPath: "/usr/bin/ruby", // Optional: custom Ruby binary path for dev
         scripts: ["src/ruby/**/*.rb"],       // Optional: glob patterns for Ruby scripts to include
       }),
@@ -215,12 +215,12 @@ Automatically detects `bin/rails` or falls back to `rails` command. Override wit
 
 ### `rubyExtension(options?)`
 
-Build extension that installs Ruby in the container.
+Build extension that installs Ruby in the container using RVM (Ruby Version Manager).
 
 | Option              | Type       | Description                                                                              |
-|---------------------|------------|------------------------------------------------------------------------------------------|
+|---------------------|------------|------------------------------------------------------------------------------------------||
 | `devRubyBinaryPath` | `string`   | Path to the Ruby binary used in development. Defaults to `/usr/bin/ruby`.                |
-| `rubyVersion`       | `string`   | Ruby version to install (e.g. `"3.2"`). Installs the `ruby<version>` apt package.       |
+| `rubyVersion`       | `string`   | Ruby version to install (e.g. `"3.2.8"`, `"3.1.4"`). Installs via RVM. Defaults to `"3.2.8"`. |
 | `scripts`           | `string[]` | Glob patterns for Ruby scripts to copy into the container.                               |
 
 ## Environment Variables

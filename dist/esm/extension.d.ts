@@ -12,13 +12,13 @@ export type RubyOptions = {
      */
     devRubyBinaryPath?: string;
     /**
-     * The version of Ruby to install in the container (e.g. `"3.2"`, `"3.1.4"`).
+     * The version of Ruby to install in the container (e.g. `"3.2.8"`, `"3.1.4"`, `"3.3.0"`).
      *
      * @remarks
-     * When specified, the exact package `ruby<version>` is installed via apt-get.
-     * If omitted, the default `ruby` package provided by the base image is used.
+     * When specified, RVM (Ruby Version Manager) is used to install the exact Ruby version.
+     * If omitted, defaults to `"3.2.8"`.
      *
-     * Example: `"3.2"` installs the `ruby3.2` apt package.
+     * Example: `"3.2.8"` installs Ruby 3.2.8 via RVM.
      */
     rubyVersion?: string;
     /**
