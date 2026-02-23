@@ -4,12 +4,13 @@ Ruby runtime and build extension for [Trigger.dev](https://trigger.dev).
 
 ## Overview
 
-This package provides a `rubyExtension` build extension and a `ruby.runScript` helper function that enable running Ruby scripts from within Trigger.dev tasks.
+This package provides a `rubyExtension` build extension and a `ruby.runRailsScript()` helper function that enable running Ruby scripts from within Trigger.dev tasks.
 
-- **Install Ruby:** Automatically installs Ruby in the container during the build process.
-- **Script execution:** Runs `.rb` script files with proper OpenTelemetry propagation.
+- **Install Ruby:** Automatically installs Ruby in the container during the build process via source compilation.
+- **Rails integration:** Runs Ruby scripts with full Rails environment context using `rails runner`.
 - **Event streaming:** Ruby scripts can send structured events back to the task — heartbeats, waits, logs, and metadata updates.
 - **Task triggering:** Trigger Trigger.dev tasks from Ruby using HTTParty integration.
+- **Gem support:** Include and install gems via Gemfile during the build process.
 - **Custom Ruby path:** In development, configure `devRubyBinaryPath` to point to a specific Ruby installation.
 
 ## Installation
@@ -33,9 +34,11 @@ export default defineConfig({
   build: {
     extensions: [
       rubyExtension({
-        rubyVersion: "3.2.8",                // Optional: specific Ruby version to install via RVM
+        rubyVersion: "3.2.8",                // Optional: specific Ruby version to install (default: 3.2.8)
         devRubyBinaryPath: "/usr/bin/ruby", // Optional: custom Ruby binary path for dev
-        scripts: ["src/ruby/**/*.rb"],       // Optional: glob patterns for Ruby scripts to include
+        files: ["src/ruby/**/*.rb"],         // Optional: glob patterns for Ruby scripts to include
+        gemFile: "Gemfile",                  // Optional: path to Gemfile for gem dependencies
+        scripts: ["bundle install"],         // Optional: custom build scripts to run
       }),
     ],
   },
@@ -43,21 +46,6 @@ export default defineConfig({
 ```
 
 ## Usage
-
-### Running a Ruby Script
-
-```typescript
-import { task } from "@trigger.dev/sdk/v3";
-import { ruby } from "trigger-dev-ruby";
-
-export const myRubyTask = task({
-  id: "my-ruby-task",
-  run: async () => {
-    const result = await ruby.runScript("src/ruby/my_script.rb", ["arg1", "arg2"]);
-    return result.stdout;
-  },
-});
-```
 
 ### Running a Rails Runner Script
 
@@ -70,8 +58,12 @@ import { ruby } from "trigger-dev-ruby";
 export const myRailsTask = task({
   id: "my-rails-task",
   run: async () => {
-    // Runs: rails runner src/ruby/rails_script.rb arg1 arg2
-    const result = await ruby.runRailsScript("src/ruby/rails_script.rb", ["arg1", "arg2"]);
+    // Runs: bundle exec rails runner src/ruby/rails_script.rb arg1 arg2
+    const result = await ruby.runRailsScript({
+      scriptPath: "src/ruby/rails_script.rb",
+      scriptArgs: ["arg1", "arg2"],
+      options: { cwd: process.cwd() },
+    });
     return result.stdout;
   },
 });
@@ -183,21 +175,7 @@ Available options:
 
 ## API
 
-### `ruby.runScript(scriptPath, scriptArgs?, options?)`
-
-Executes a Ruby script file and processes any Trigger.dev events emitted by the script.
-
-| Parameter    | Type                 | Description                                        |
-|--------------|----------------------|----------------------------------------------------|
-| `scriptPath` | `string`             | Path to the `.rb` file to execute. Must exist.     |
-| `scriptArgs` | `string[]`           | Optional arguments passed to the script.           |
-| `options`    | `RubyExecOptions`    | Optional execution options (`env`, `cwd`).         |
-
-Returns a `Promise<RubyScriptResult>` with `{ stdout, stderr, exitCode }`.
-
-Throws an error if the script exits with a non-zero exit code.
-
-### `ruby.runRailsScript(scriptPath, scriptArgs?, options?)`
+### `ruby.runRailsScript({ scriptPath, scriptArgs?, options })`
 
 Executes a Ruby script using `rails runner`, providing full Rails environment context.
 
@@ -205,23 +183,29 @@ Executes a Ruby script using `rails runner`, providing full Rails environment co
 |--------------|----------------------|----------------------------------------------------|
 | `scriptPath` | `string`             | Path to the `.rb` file to execute. Must exist.     |
 | `scriptArgs` | `string[]`           | Optional arguments passed to the script.           |
-| `options`    | `RubyExecOptions`    | Optional execution options (`env`, `cwd`).         |
+| `options`    | `RubyExecOptions`    | Execution options with `env` and `cwd` properties. |
+
+**RubyExecOptions:**
+- `env`: Record<string, string | undefined> - Environment variables
+- `cwd`: string - Working directory for script execution
 
 Returns a `Promise<RubyScriptResult>` with `{ stdout, stderr, exitCode }`.
 
 Throws an error if the script exits with a non-zero exit code.
 
-Automatically detects `bin/rails` or falls back to `rails` command. Override with `RAILS_BIN_PATH` environment variable.
+Executes via `bundle exec rails runner`. Automatically detects `bin/rails` or falls back to `rails` command. Override with `RAILS_BIN_PATH` environment variable.
 
 ### `rubyExtension(options?)`
 
-Build extension that installs Ruby in the container using RVM (Ruby Version Manager).
+Build extension that installs Ruby in the container by compiling from source.
 
 | Option              | Type       | Description                                                                              |
-|---------------------|------------|------------------------------------------------------------------------------------------||
+|---------------------|------------|------------------------------------------------------                                     |
 | `devRubyBinaryPath` | `string`   | Path to the Ruby binary used in development. Defaults to `/usr/bin/ruby`.                |
-| `rubyVersion`       | `string`   | Ruby version to install (e.g. `"3.2.8"`, `"3.1.4"`). Installs via RVM. Defaults to `"3.2.8"`. |
-| `scripts`           | `string[]` | Glob patterns for Ruby scripts to copy into the container.                               |
+| `rubyVersion`       | `string`   | Ruby version to install (e.g. `"3.2.8"`, `"3.1.4"`). Compiled from source. Defaults to `"3.2.8"`. |
+| `files`             | `string[]` | Glob patterns for Ruby files to copy into the container during build.                     |
+| `gemFile`           | `string`   | Path to a Gemfile to include in the build. Runs `bundle install` if provided.           |
+| `scripts`           | `string[]` | Custom shell commands to run during the build process.                                   |
 
 ## Environment Variables
 
@@ -234,9 +218,10 @@ Build extension that installs Ruby in the container using RVM (Ruby Version Mana
 
 ## Limitations
 
-- Only `runScript` is supported. Inline script execution and lower-level command running are not provided.
+- Only `runRailsScript` is currently supported. Direct Ruby script execution without Rails is not yet implemented.
 - This is a partial implementation and does not provide full Ruby support as an execution runtime for tasks.
-- Task triggering requires the `httparty` gem to be installed separately.
+- Task triggering from Ruby requires the `httparty` gem to be installed separately.
+- Ruby is compiled from source during the build, which may increase build times.
 
 ## Author
 

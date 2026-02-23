@@ -2,13 +2,12 @@ import { SemanticInternalAttributes, taskContext } from "@trigger.dev/core/v3";
 import { logger, heartbeats, wait, metadata } from "@trigger.dev/sdk/v3";
 import { carrierFromContext } from "@trigger.dev/core/v3/otel";
 import assert from "node:assert";
-import fs from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn, ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
 
 export type RubyExecOptions = {
   env?: { [key: string]: string | undefined };
-  cwd?: string;
+  cwd: string;
 };
 
 export type RubyScriptResult = {
@@ -70,117 +69,88 @@ async function handleTriggerEvent(event: TriggerEvent): Promise<boolean> {
 }
 
 export const ruby = {
-  async runScript(
-    scriptPath: string,
-    scriptArgs: string[] = [],
-    options: RubyExecOptions = {}
-  ): Promise<RubyScriptResult> {
+  /**
+   * Execute a Ruby script using `rails runner` with full Rails environment context.
+   *
+   * This method runs the specified Ruby script via `bundle exec rails runner`,
+   * providing access to the complete Rails application environment. It handles:
+   * - OpenTelemetry tracing and context propagation
+   * - Streaming event processing from Ruby (heartbeats, waits, logs, metadata)
+   * - Proper error handling and exit code validation
+   * - RVM/rbenv version manager support for development environments
+   *
+   * @param params - Configuration object for the Rails script execution
+   * @param params.scriptPath - Path to the Ruby script file to execute (required)
+   * @param params.scriptArgs - Optional array of command-line arguments to pass to the script
+   * @param params.options - Execution options including environment variables and working directory
+   * @param params.options.cwd - Working directory for script execution
+   * @param params.options.env - Optional environment variables to pass to the script
+   *
+   * @returns Promise resolving to RubyScriptResult containing stdout, stderr, and exitCode
+   *
+   * @throws Error if the script path is not provided
+   * @throws Error if the script exits with a non-zero exit code
+   *
+   * @example
+   * ```typescript
+   * const result = await ruby.runRailsScript({
+   *   scriptPath: "src/ruby/process_users.rb",
+   *   scriptArgs: ["--limit", "100"],
+   *   options: { cwd: process.cwd() }
+   * });
+   * console.log(result.stdout);
+   * ```
+   */
+  async runRailsScript({
+    scriptArgs = [],
+    scriptPath,
+    options,
+  }: {
+    scriptPath: string;
+    scriptArgs?: string[];
+    options: RubyExecOptions;
+  }): Promise<RubyScriptResult> {
     assert(scriptPath, "Script path is required");
-    assert(fs.existsSync(scriptPath), `Script does not exist: ${scriptPath}`);
 
-    const rubyBin = process.env.RUBY_BIN_PATH || "ruby";
+    const commandArgs = ["exec", "rails", "runner", scriptPath, ...scriptArgs];
+    const binPath = "bundle";
 
-    return await _executeRubyCommand(
-      "ruby.runScript()",
-      [scriptPath, ...scriptArgs],
-      rubyBin,
-      scriptPath,
-      options
-    );
-  },
-
-  async runRailsScript(
-    scriptPath: string,
-    scriptArgs: string[] = [],
-    options: RubyExecOptions = {}
-  ): Promise<RubyScriptResult> {
-    assert(scriptPath, "Script path is required");
-    assert(fs.existsSync(scriptPath), `Script does not exist: ${scriptPath}`);
-
-    // Try bin/rails first (common in Rails apps), then fall back to rails
-    const railsBin = process.env.RAILS_BIN_PATH || 
-      (fs.existsSync("bin/rails") ? "bin/rails" : "rails");
-
-    return await _executeRubyCommand(
+    return await logger.trace(
       "ruby.runRailsScript()",
-      ["rails", "runner", scriptPath, ...scriptArgs],
-      railsBin,
-      scriptPath,
-      options
-    );
-  },
-};
-
-async function _executeRubyCommand(
-  traceName: string,
-  commandArgs: string[],
-  binPath: string,
-  scriptPath: string,
-  options: RubyExecOptions = {}
-): Promise<RubyScriptResult> {
-  return await logger.trace(
-    traceName,
-    async (span) => {
-      span.setAttribute("scriptPath", scriptPath);
+      async (span) => {
+        span.setAttribute("scriptPath", scriptPath);
 
         const carrier = carrierFromContext();
-
-        const env: NodeJS.ProcessEnv = {
-          ...process.env,
-          ...options.env,
-          TRACEPARENT: carrier["traceparent"],
-          OTEL_RESOURCE_ATTRIBUTES: `${
-            SemanticInternalAttributes.EXECUTION_ENVIRONMENT
-          }=trigger,${Object.entries(taskContext.attributes)
-            .map(([key, value]) => `${key}=${value}`)
-            .join(",")}`,
-          OTEL_LOG_LEVEL: "DEBUG",
-        };
+        const envVars = buildEnvironmentVariables(options, carrier);
+        const exportStatements = buildExportStatements(envVars);
+        const escapedArgs = escapeShellArguments(commandArgs);
+        const shellCommand = buildShellCommand(
+          binPath,
+          escapedArgs,
+          exportStatements,
+          options.cwd,
+        );
 
         return new Promise<RubyScriptResult>((resolve, reject) => {
-          const proc = spawn(binPath, commandArgs, {
-            env,
-            cwd: options.cwd,
+          const shellPath = process.env.SHELL || "/bin/bash";
+          const proc = spawn(shellCommand, {
             stdio: ["pipe", "pipe", "pipe"],
+            shell: shellPath,
           });
 
           const stdoutLines: string[] = [];
           const stderrChunks: string[] = [];
-
-          const rl = createInterface({ input: proc.stdout!, crlfDelay: Infinity });
-
-          // Process events serially to preserve ordering and allow blocking waits
           let eventChain: Promise<void> = Promise.resolve();
 
+          const rl = createInterface({
+            input: proc.stdout!,
+            crlfDelay: Infinity,
+          });
+
           rl.on("line", (line) => {
-            if (line.startsWith(TRIGGER_EVENT_PREFIX)) {
-              try {
-                const event: TriggerEvent = JSON.parse(
-                  line.slice(TRIGGER_EVENT_PREFIX.length)
-                );
-                eventChain = eventChain.then(async () => {
-                  try {
-                    const needsAck = await handleTriggerEvent(event);
-                    if (needsAck && proc.stdin && !proc.stdin.destroyed) {
-                      proc.stdin.write("__ACK__\n");
-                    }
-                  } catch (err) {
-                    logger.error("Error handling Ruby trigger event", {
-                      error: String(err),
-                    });
-                    // Always send ACK to unblock the Ruby process
-                    if (proc.stdin && !proc.stdin.destroyed) {
-                      proc.stdin.write("__ACK__\n");
-                    }
-                  }
-                });
-              } catch {
-                // Malformed event line – treat as plain output
-                stdoutLines.push(line);
-              }
-            } else {
-              stdoutLines.push(line);
-            }
+            eventChain = processEventLine(line, stdoutLines, eventChain, proc).then(
+              (chain) => chain,
+            );
           });
 
           proc.stderr!.on("data", (chunk: Buffer) => {
@@ -191,25 +161,15 @@ async function _executeRubyCommand(
 
           proc.on("close", async (code) => {
             try {
-              // Wait for all in-flight events to finish before resolving
-              await eventChain;
-
-              const exitCode = code ?? -1;
-              const stdout = stdoutLines.join("\n");
-              const stderr = stderrChunks.join("");
-
-              span.setAttribute("exitCode", exitCode);
-
-              if (exitCode !== 0) {
-                const reason =
-                  exitCode === -1
-                    ? `${scriptPath} was terminated by a signal`
-                    : `${scriptPath} exited with a non-zero code ${exitCode}`;
-                reject(new Error(`${reason}:\n${stdout}\n${stderr}`));
-                return;
-              }
-
-              resolve({ stdout, stderr, exitCode });
+              const result = await handleProcessClose(
+                code,
+                eventChain,
+                stdoutLines,
+                stderrChunks,
+                scriptPath,
+              );
+              span.setAttribute("exitCode", result.exitCode);
+              resolve(result);
             } catch (err) {
               reject(err);
             }
@@ -223,6 +183,155 @@ async function _executeRubyCommand(
           args: commandArgs.join(" "),
           [SemanticInternalAttributes.STYLE_ICON]: "ruby",
         },
-      }
+      },
     );
+  },
+};
+
+/**
+ * Build environment variables for the Ruby process, including OpenTelemetry context.
+ */
+function buildEnvironmentVariables(
+  options: RubyExecOptions,
+  carrier: Record<string, string>,
+): Record<string, string> {
+  const otelResourceAttributes = `${
+    SemanticInternalAttributes.EXECUTION_ENVIRONMENT
+  }=trigger,${Object.entries(taskContext.attributes)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(",")}`;
+
+  return {
+    ...options.env,
+    TRACEPARENT: carrier["traceparent"],
+    OTEL_RESOURCE_ATTRIBUTES: otelResourceAttributes,
+    OTEL_LOG_LEVEL: "DEBUG",
+  };
+}
+
+/**
+ * Convert environment variables into shell export statements.
+ */
+function buildExportStatements(envVars: Record<string, string>): string {
+  return Object.entries(envVars)
+    .filter(([_, value]) => value !== undefined)
+    .map(([key, value]) => `export ${key}="${value?.replace(/"/g, '\\"')}"`)
+    .join("; ");
+}
+
+/**
+ * Escape shell arguments for safe command execution.
+ */
+function escapeShellArguments(args: string[]): string {
+  return args
+    .map((arg) => {
+      const needsEscaping =
+        arg.includes(" ") ||
+        arg.includes("&") ||
+        arg.includes(";") ||
+        arg.includes("$");
+
+      return needsEscaping ? `'${arg.replace(/'/g, "'\\''")}'` : arg;
+    })
+    .join(" ");
+}
+
+/**
+ * Build Ruby version manager setup command (RVM or rbenv).
+ */
+function buildRubySetupCommand(): string {
+  const homeDir = process.env.HOME || "~";
+  const rvmScript = `${homeDir}/.rvm/scripts/rvm`;
+  const rbenvInit = `${homeDir}/.rbenv/bin/rbenv`;
+
+  return `if [ -f "${rvmScript}" ]; then source "${rvmScript}" 2>/dev/null; elif [ -f "${rbenvInit}" ]; then export PATH="${homeDir}/.rbenv/bin:$PATH"; eval "$(rbenv init - 2>/dev/null)"; fi`;
+}
+
+/**
+ * Build the complete shell command to execute.
+ */
+function buildShellCommand(
+  binPath: string,
+  escapedArgs: string,
+  exportStatements: string,
+  cwd: string,
+): string {
+  const rubySetup = buildRubySetupCommand();
+  return `${rubySetup}; cd "${cwd}"; ${exportStatements}; ${binPath} ${escapedArgs}`;
+}
+
+/**
+ * Send acknowledgment to the Ruby process via stdin.
+ */
+function sendAcknowledgment(proc: ChildProcess): void {
+  if (proc.stdin && !proc.stdin.destroyed) {
+    proc.stdin.write("__ACK__\n");
+  }
+}
+
+/**
+ * Process a line from stdout, handling trigger events or regular output.
+ */
+async function processEventLine(
+  line: string,
+  stdoutLines: string[],
+  eventChain: Promise<void>,
+  proc: ChildProcess,
+): Promise<Promise<void>> {
+  if (!line.startsWith(TRIGGER_EVENT_PREFIX)) {
+    stdoutLines.push(line);
+    return eventChain;
+  }
+
+  try {
+    const eventJson = line.slice(TRIGGER_EVENT_PREFIX.length);
+    const event: TriggerEvent = JSON.parse(eventJson);
+
+    return eventChain.then(async () => {
+      try {
+        const needsAck = await handleTriggerEvent(event);
+        if (needsAck) {
+          sendAcknowledgment(proc);
+        }
+      } catch (err) {
+        logger.error("Error handling Ruby trigger event", {
+          error: String(err),
+        });
+        // Always send ACK to unblock the Ruby process
+        sendAcknowledgment(proc);
+      }
+    });
+  } catch {
+    // Malformed event line – treat as plain output
+    stdoutLines.push(line);
+    return eventChain;
+  }
+}
+
+/**
+ * Handle process close event and return the result.
+ */
+async function handleProcessClose(
+  code: number | null,
+  eventChain: Promise<void>,
+  stdoutLines: string[],
+  stderrChunks: string[],
+  scriptPath: string,
+): Promise<RubyScriptResult> {
+  // Wait for all in-flight events to finish
+  await eventChain;
+
+  const exitCode = code ?? -1;
+  const stdout = stdoutLines.join("\n");
+  const stderr = stderrChunks.join("");
+
+  if (exitCode !== 0) {
+    const reason =
+      exitCode === -1
+        ? `${scriptPath} was terminated by a signal`
+        : `${scriptPath} exited with a non-zero code ${exitCode}`;
+    throw new Error(`${reason}:\n${stdout}\n${stderr}`);
+  }
+
+  return { stdout, stderr, exitCode };
 }
