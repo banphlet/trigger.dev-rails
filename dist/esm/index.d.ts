@@ -3,6 +3,12 @@ export type RubyExecOptions = {
         [key: string]: string | undefined;
     };
     cwd: string;
+    /**
+     * Optional JSON payload to pass to the Ruby script.
+     * This will be available as an environment variable TRIGGER_PAYLOAD.
+     * In Ruby, access it with: JSON.parse(ENV['TRIGGER_PAYLOAD'] || '{}')
+     */
+    payload?: Record<string, unknown>;
 };
 export type RubyScriptResult = {
     stdout: string;
@@ -31,6 +37,7 @@ export declare const ruby: {
      * @param params.options - Execution options including environment variables and working directory
      * @param params.options.cwd - Working directory for script execution
      * @param params.options.env - Optional environment variables to pass to the script
+     * @param params.options.payload - Optional JSON payload passed as TRIGGER_PAYLOAD env var
      *
      * @returns Promise resolving to RubyScriptResult containing stdout, stderr, and exitCode
      *
@@ -42,9 +49,20 @@ export declare const ruby: {
      * const result = await ruby.runRailsScript({
      *   scriptPath: "src/ruby/process_users.rb",
      *   scriptArgs: ["--limit", "100"],
-     *   options: { cwd: process.cwd() }
+     *   options: {
+     *     cwd: process.cwd(),
+     *     payload: { userId: 123, action: "process" }
+     *   }
      * });
      * console.log(result.stdout);
+     * ```
+     *
+     * @example Ruby script accessing payload:
+     * ```ruby
+     * require 'json'
+     * payload = JSON.parse(ENV['TRIGGER_PAYLOAD'] || '{}')
+     * user_id = payload['userId']
+     * action = payload['action']
      * ```
      */
     runRailsScript({ scriptArgs, scriptPath, options, }: {

@@ -60,6 +60,7 @@ exports.ruby = {
      * @param params.options - Execution options including environment variables and working directory
      * @param params.options.cwd - Working directory for script execution
      * @param params.options.env - Optional environment variables to pass to the script
+     * @param params.options.payload - Optional JSON payload passed as TRIGGER_PAYLOAD env var
      *
      * @returns Promise resolving to RubyScriptResult containing stdout, stderr, and exitCode
      *
@@ -71,9 +72,20 @@ exports.ruby = {
      * const result = await ruby.runRailsScript({
      *   scriptPath: "src/ruby/process_users.rb",
      *   scriptArgs: ["--limit", "100"],
-     *   options: { cwd: process.cwd() }
+     *   options: {
+     *     cwd: process.cwd(),
+     *     payload: { userId: 123, action: "process" }
+     *   }
      * });
      * console.log(result.stdout);
+     * ```
+     *
+     * @example Ruby script accessing payload:
+     * ```ruby
+     * require 'json'
+     * payload = JSON.parse(ENV['TRIGGER_PAYLOAD'] || '{}')
+     * user_id = payload['userId']
+     * action = payload['action']
      * ```
      */
     async runRailsScript({ scriptArgs = [], scriptPath, options, }) {
@@ -107,7 +119,10 @@ exports.ruby = {
                     eventChain = processEventLine(line, stdoutLines, eventChain, proc).then((chain) => chain);
                 });
                 proc.stderr.on("data", (chunk) => {
-                    stderrChunks.push(chunk.toString());
+                    const content = chunk.toString();
+                    // Always write to terminal stderr for real-time visibility
+                    process.stderr.write(content);
+                    stderrChunks.push(content);
                 });
                 proc.on("error", reject);
                 proc.on("close", async (code) => {
@@ -138,12 +153,17 @@ function buildEnvironmentVariables(options, carrier) {
     const otelResourceAttributes = `${v3_1.SemanticInternalAttributes.EXECUTION_ENVIRONMENT}=trigger,${Object.entries(v3_1.taskContext.attributes)
         .map(([key, value]) => `${key}=${value}`)
         .join(",")}`;
-    return {
+    const envVars = {
         ...options.env,
         TRACEPARENT: carrier["traceparent"],
         OTEL_RESOURCE_ATTRIBUTES: otelResourceAttributes,
         OTEL_LOG_LEVEL: "DEBUG",
     };
+    // Add payload as JSON string if provided
+    if (options.payload) {
+        envVars.TRIGGER_PAYLOAD = JSON.stringify(options.payload);
+    }
+    return envVars;
 }
 /**
  * Convert environment variables into shell export statements.
@@ -204,6 +224,8 @@ function sendAcknowledgment(proc) {
  */
 async function processEventLine(line, stdoutLines, eventChain, proc) {
     if (!line.startsWith(exports.TRIGGER_EVENT_PREFIX)) {
+        // Always write to terminal stdout for real-time visibility
+        process.stdout.write(line + "\n");
         stdoutLines.push(line);
         return eventChain;
     }
