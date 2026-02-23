@@ -33,6 +33,7 @@ class RubyExtension {
                 instructions: [
                     `RUN apt-get update && apt-get install -y \
         procps \
+        libpq-dev\
         git\
         curl \
         build-essential \
@@ -59,7 +60,7 @@ class RubyExtension {
           make install && \
           cd .. && \
           rm -rf ruby-${rubyVersion} ruby-${rubyVersion}.tar.gz`,
-                    `RUN gem install bundler && gem install pg && gem install rake`,
+                    `RUN gem install bundler`,
                     `RUN ruby --version && bundle --version`,
                     ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
                 ],
