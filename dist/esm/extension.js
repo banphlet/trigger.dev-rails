@@ -51,8 +51,8 @@ class RubyExtension {
     curl -sSL https://rvm.io/pkuczynski.asc | gpg2 --import - && \
     curl -sSL https://get.rvm.io | bash -s stable`,
                     `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && \
-    rvm install 3.2.6 && \
-    rvm use 3.2.6 --default && \
+    rvm install ${rubyVersion} && \
+    rvm use ${rubyVersion} --default && \
     gem install bundler"
     `,
                     `RUN echo 'source /etc/profile.d/rvm.sh' >> ~/.bashrc`,
