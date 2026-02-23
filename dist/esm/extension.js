@@ -28,7 +28,7 @@ class RubyExtension {
             id: "ruby-installation",
             image: {
                 instructions: [
-                    `RUN apt-get update && apt-get install -y --no-install-recommends ${rubyPackage} && apt-get clean && rm -rf /var/lib/apt/lists/*`,
+                    'RUN apt-get update && apt-get install -y curl gnupg2',
                     "RUN curl -sSL https://get.rvm.io | bash -s stable --ruby",
                     `RUN /bin/bash -l -c "rvm install ${rubyVersion} && rvm use ${rubyVersion} --default"`,
                     "RUN gem install pg",
