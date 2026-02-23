@@ -35,7 +35,12 @@ export type RubyOptions = {
   /**
    * Array of custom scripts to run during the build process. Each script should be a valid shell command.
    */
-  scripts?: string[]
+  scripts?: string[];
+
+  /**
+   * [Optional] The path to a Gemfile that should be included in the build. If provided, the Gemfile will be copied to the container and `bundle install` will be run during the build process.
+   */
+  gemFile?: string;
 };
 
 export function rubyExtension(options: RubyOptions = {}): BuildExtension {
@@ -54,7 +59,7 @@ class RubyExtension implements BuildExtension {
         files: this.options.files ?? [],
       },
       context,
-      manifest
+      manifest,
     );
 
     if (context.target === "dev") {
@@ -68,7 +73,7 @@ class RubyExtension implements BuildExtension {
     }
 
     context.logger.debug(`Adding ${this.name} to the build`);
-    const rubyVersion = this.options.rubyVersion ?? "3.2"
+    const rubyVersion = this.options.rubyVersion ?? "3.2";
 
     const rubyPackage = `ruby${rubyVersion}`;
 
@@ -80,7 +85,7 @@ class RubyExtension implements BuildExtension {
           "RUN gem install nokogiri --platform=ruby --no-document -- --use-system-libraries",
           "RUN gem install pg",
           "RUN gem install rake",
-          ...this.options.scripts?.map(script => `RUN ${script}`) ?? []
+          ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
         ],
       },
       deploy: {
@@ -90,5 +95,20 @@ class RubyExtension implements BuildExtension {
         override: true,
       },
     });
+
+    if (this.options.gemFile) {
+      context.addLayer({
+        id: "ruby-gem-installation",
+        image: {
+          instructions: [
+            `COPY ${this.options.gemFile} ${this.options.gemFile}.lock .`,
+            'RUN bundle check || bundle install || bundle update'
+          ],
+        },
+        deploy: {
+          override: true,
+        },
+      });
+    }
   }
 }
