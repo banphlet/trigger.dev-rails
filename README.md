@@ -1,6 +1,6 @@
-# trigger-dev-ruby
+# trigger-dev-rails
 
-Ruby runtime and build extension for [Trigger.dev](https://trigger.dev).
+Rails runtime and build extension for [Trigger.dev](https://trigger.dev).
 
 ## Overview
 
@@ -8,17 +8,19 @@ This package provides a `rubyExtension` build extension and a `ruby.runRailsScri
 
 - **Install Ruby:** Automatically installs Ruby in the container during the build process via source compilation.
 - **Rails integration:** Runs Ruby scripts with full Rails environment context using `rails runner`.
+- **OpenTelemetry tracing:** Full tracing and context propagation for observability.
 - **Event streaming:** Ruby scripts can send structured events back to the task — heartbeats, waits, logs, and metadata updates.
 - **Task triggering:** Trigger Trigger.dev tasks from Ruby using HTTParty integration.
 - **Gem support:** Include and install gems via Gemfile during the build process.
+- **Version manager support:** Automatic RVM/rbenv detection and setup for development environments.
 - **Custom Ruby path:** In development, configure `devRubyBinaryPath` to point to a specific Ruby installation.
 
 ## Installation
 
 ```bash
-npm install trigger-dev-ruby
+npm install trigger-dev-rails
 # or
-pnpm add trigger-dev-ruby
+pnpm add trigger-dev-rails
 ```
 
 ## Setup
@@ -27,7 +29,7 @@ Add the extension to your `trigger.config.ts` file:
 
 ```typescript
 import { defineConfig } from "@trigger.dev/sdk/v3";
-import { rubyExtension } from "trigger-dev-ruby/extension";
+import { rubyExtension } from "trigger-dev-rails/extension";
 
 export default defineConfig({
   project: "<project ref>",
@@ -53,7 +55,7 @@ For Rails applications, use `runRailsScript` to execute scripts with `rails runn
 
 ```typescript
 import { task } from "@trigger.dev/sdk/v3";
-import { ruby } from "trigger-dev-ruby";
+import { ruby } from "trigger-dev-rails";
 
 export const myRailsTask = task({
   id: "my-rails-task",
@@ -179,6 +181,14 @@ Available options:
 
 Executes a Ruby script using `rails runner`, providing full Rails environment context.
 
+This method runs the specified Ruby script via `bundle exec rails runner`, providing access to the complete Rails application environment. It handles:
+- **OpenTelemetry tracing** - Full tracing and context propagation for observability
+- **Streaming event processing** - Processes heartbeats, waits, logs, and metadata updates from Ruby
+- **Error handling** - Proper exit code validation and error reporting
+- **Version manager support** - RVM/rbenv detection and setup for development environments
+
+**Parameters:**
+
 | Parameter    | Type                 | Description                                        |
 |--------------|----------------------|----------------------------------------------------|
 | `scriptPath` | `string`             | Path to the `.rb` file to execute. Must exist.     |
@@ -189,9 +199,11 @@ Executes a Ruby script using `rails runner`, providing full Rails environment co
 - `env`: Record<string, string | undefined> - Environment variables
 - `cwd`: string - Working directory for script execution
 
-Returns a `Promise<RubyScriptResult>` with `{ stdout, stderr, exitCode }`.
+**Returns:** `Promise<RubyScriptResult>` with `{ stdout, stderr, exitCode }`.
 
-Throws an error if the script exits with a non-zero exit code.
+**Throws:**
+- Error if the script path is not provided
+- Error if the script exits with a non-zero exit code
 
 Executes via `bundle exec rails runner`. Automatically detects `bin/rails` or falls back to `rails` command. Override with `RAILS_BIN_PATH` environment variable.
 
@@ -222,6 +234,18 @@ Build extension that installs Ruby in the container by compiling from source.
 - This is a partial implementation and does not provide full Ruby support as an execution runtime for tasks.
 - Task triggering from Ruby requires the `httparty` gem to be installed separately.
 - Ruby is compiled from source during the build, which may increase build times.
+
+## Architecture
+
+The extension is built with a modular architecture for maintainability and testability:
+
+- **Environment setup** - Constructs OpenTelemetry context and environment variables
+- **Shell command building** - Safely escapes arguments and builds shell commands
+- **Version manager detection** - Automatically detects and configures RVM/rbenv
+- **Event processing** - Streams and processes trigger events from Ruby scripts
+- **Error handling** - Validates exit codes and provides detailed error messages
+
+All helper functions are well-documented and can be easily extended for future enhancements.
 
 ## Author
 

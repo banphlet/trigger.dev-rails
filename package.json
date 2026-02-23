@@ -1,7 +1,7 @@
 {
-  "name": "trigger-dev-ruby",
+  "name": "trigger-dev-rails",
   "version": "0.0.1",
-  "description": "Ruby runtime and build extension for Trigger.dev",
+  "description": "Rails runtime and build extension for Trigger.dev",
   "license": "MIT",
   "author": "banphlet (https://github.com/banphlet)",
   "publishConfig": {
