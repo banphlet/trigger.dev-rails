@@ -103,7 +103,7 @@ export const ruby = {
 
     return await _executeRubyCommand(
       "ruby.runRailsScript()",
-      ["runner", scriptPath, ...scriptArgs],
+      ["rails", "runner", scriptPath, ...scriptArgs],
       railsBin,
       scriptPath,
       options

@@ -57,7 +57,7 @@ exports.ruby = {
         // Try bin/rails first (common in Rails apps), then fall back to rails
         const railsBin = process.env.RAILS_BIN_PATH ||
             (node_fs_1.default.existsSync("bin/rails") ? "bin/rails" : "rails");
-        return await _executeRubyCommand("ruby.runRailsScript()", ["runner", scriptPath, ...scriptArgs], railsBin, scriptPath, options);
+        return await _executeRubyCommand("ruby.runRailsScript()", ["rails", "runner", scriptPath, ...scriptArgs], railsBin, scriptPath, options);
     },
 };
 async function _executeRubyCommand(traceName, commandArgs, binPath, scriptPath, options = {}) {
