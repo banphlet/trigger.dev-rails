@@ -25,12 +25,17 @@ export type RubyOptions = {
    */
   rubyVersion?: string;
   /**
-   * An array of glob patterns that specify which Ruby scripts are allowed to be executed.
+   * An array of glob patterns that specify which Ruby files are allowed to be executed.
    *
    * @remarks
-   * These scripts will be copied to the container during the build process.
+   * These files will be copied to the container during the build process.
    */
-  scripts?: string[];
+  files?: string[];
+
+  /**
+   * Array of custom scripts to run during the build process. Each script should be a valid shell command.
+   */
+  scripts?: string[]
 };
 
 export function rubyExtension(options: RubyOptions = {}): BuildExtension {
@@ -46,7 +51,7 @@ class RubyExtension implements BuildExtension {
     await addAdditionalFilesToBuild(
       "rubyExtension",
       {
-        files: this.options.scripts ?? [],
+        files: this.options.files ?? [],
       },
       context,
       manifest
@@ -63,16 +68,19 @@ class RubyExtension implements BuildExtension {
     }
 
     context.logger.debug(`Adding ${this.name} to the build`);
+    const rubyVersion = this.options.rubyVersion ?? "3.2"
 
-    const rubyPackage = this.options.rubyVersion
-      ? `ruby${this.options.rubyVersion}`
-      : "ruby";
+    const rubyPackage = `ruby${rubyVersion}`;
 
     context.addLayer({
       id: "ruby-installation",
       image: {
         instructions: [
           `RUN apt-get update && apt-get install -y --no-install-recommends ${rubyPackage} && apt-get clean && rm -rf /var/lib/apt/lists/*`,
+          "RUN gem install nokogiri --platform=ruby --no-document -- --use-system-libraries",
+          "RUN gem install pg",
+          "RUN gem install rake",
+          ...this.options.scripts?.map(script => `RUN ${script}`) ?? []
         ],
       },
       deploy: {
