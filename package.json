@@ -9,8 +9,7 @@
   },
   "type": "module",
   "files": [
-    "dist",
-    "src/ruby"
+    "dist"
   ],
   "scripts": {
     "clean": "rimraf dist",
