@@ -32,6 +32,7 @@ class RubyExtension {
             image: {
                 instructions: [
                     `RUN apt-get update && apt-get install -y \
+          procps \
           curl \
           gnupg2 \
           build-essential \
