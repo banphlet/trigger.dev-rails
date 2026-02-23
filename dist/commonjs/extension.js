@@ -34,6 +34,7 @@ class RubyExtension {
                     'RUN apt-get update && apt-get install -y curl gnupg2',
                     "RUN curl -sSL https://get.rvm.io | bash -s",
                     `RUN rvm install ${rubyVersion} && rvm use ${rubyVersion} --default`,
+                    `RUN /bin/bash -l -c ". /etc/profile.d/rvm.sh && rvm install ${rubyVersion} && rvm use ${rubyVersion} --default"`,
                     "RUN gem install pg",
                     "RUN gem install rake",
                     ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
