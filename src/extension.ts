@@ -81,9 +81,33 @@ class RubyExtension implements BuildExtension {
       id: "ruby-installation",
       image: {
         instructions: [
-          'RUN apt-get update && apt-get install -y curl gnupg2',
-          "RUN curl -sSL https://get.rvm.io | bash -s",
-          `RUN /bin/bash -l -c ". /etc/profile.d/rvm.sh && /etc/profile.d/rvm.sh install ${rubyVersion} && /etc/profile.d/rvm.sh use ${rubyVersion} --default"`,
+          `RUN apt-get update && apt-get install -y \
+            curl \
+            gnupg2 \
+            build-essential \
+            libssl-dev \
+            libreadline-dev \
+            zlib1g-dev \
+            autoconf \
+            bison \
+            libyaml-dev \
+            libsqlite3-dev \
+            sqlite3 \
+            libxml2-dev \
+            libxslt1-dev \
+            libcurl4-openssl-dev \
+            libffi-dev \
+            && rm -rf /var/lib/apt/lists/*
+          `,
+          `RUN curl -sSL https://rvm.io/mpapis.asc | gpg2 --import - && \
+            curl -sSL https://rvm.io/pkuczynski.asc | gpg2 --import - && \
+            curl -sSL https://get.rvm.io | bash -s stable
+          `,
+          `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && \
+          rvm install ${rubyVersion} && \
+          rvm use ${rubyVersion} --default && \
+          gem install bundler"
+    `,
           "RUN gem install pg",
           "RUN gem install rake",
           ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
