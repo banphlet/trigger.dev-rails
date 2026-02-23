@@ -32,6 +32,7 @@ export default defineConfig({
   build: {
     extensions: [
       rubyExtension({
+        rubyVersion: "3.2",                // Optional: specific Ruby version to install
         devRubyBinaryPath: "/usr/bin/ruby", // Optional: custom Ruby binary path for dev
         scripts: ["src/ruby/**/*.rb"],       // Optional: glob patterns for Ruby scripts to include
       }),
@@ -111,16 +112,17 @@ Throws an error if the script exits with a non-zero exit code.
 
 Build extension that installs Ruby in the container.
 
-| Option              | Type       | Description                                                    |
-|---------------------|------------|----------------------------------------------------------------|
-| `devRubyBinaryPath` | `string`   | Path to the Ruby binary used in development.                   |
-| `scripts`           | `string[]` | Glob patterns for Ruby scripts to copy into the container.     |
+| Option              | Type       | Description                                                                              |
+|---------------------|------------|------------------------------------------------------------------------------------------|
+| `devRubyBinaryPath` | `string`   | Path to the Ruby binary used in development. Defaults to `/usr/bin/ruby`.                |
+| `rubyVersion`       | `string`   | Ruby version to install (e.g. `"3.2"`). Installs the `ruby<version>` apt package.       |
+| `scripts`           | `string[]` | Glob patterns for Ruby scripts to copy into the container.                               |
 
 ## Environment Variables
 
-| Variable        | Description                                         | Default  |
-|-----------------|-----------------------------------------------------|----------|
-| `RUBY_BIN_PATH` | Path to the Ruby binary used at runtime.            | `"ruby"` |
+| Variable        | Description                                           | Default           |
+|-----------------|-------------------------------------------------------|-------------------|
+| `RUBY_BIN_PATH` | Path to the Ruby binary used at runtime.              | `/usr/bin/ruby`   |
 
 ## Limitations
 

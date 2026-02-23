@@ -1,4 +1,3 @@
-import assert from "node:assert";
 import { addAdditionalFilesToBuild } from "@trigger.dev/build/internal";
 import { BuildManifest } from "@trigger.dev/core/v3";
 import { BuildContext, BuildExtension } from "@trigger.dev/core/v3/build";
@@ -15,6 +14,16 @@ export type RubyOptions = {
    * Example: `/usr/bin/ruby` or `/usr/local/bin/ruby`
    */
   devRubyBinaryPath?: string;
+  /**
+   * The version of Ruby to install in the container (e.g. `"3.2"`, `"3.1.4"`).
+   *
+   * @remarks
+   * When specified, the exact package `ruby<version>` is installed via apt-get.
+   * If omitted, the default `ruby` package provided by the base image is used.
+   *
+   * Example: `"3.2"` installs the `ruby3.2` apt package.
+   */
+  rubyVersion?: string;
   /**
    * An array of glob patterns that specify which Ruby scripts are allowed to be executed.
    *
@@ -46,6 +55,8 @@ class RubyExtension implements BuildExtension {
     if (context.target === "dev") {
       if (this.options.devRubyBinaryPath) {
         process.env.RUBY_BIN_PATH = this.options.devRubyBinaryPath;
+      } else {
+        process.env.RUBY_BIN_PATH = "/usr/bin/ruby";
       }
 
       return;
@@ -53,16 +64,20 @@ class RubyExtension implements BuildExtension {
 
     context.logger.debug(`Adding ${this.name} to the build`);
 
+    const rubyPackage = this.options.rubyVersion
+      ? `ruby${this.options.rubyVersion}`
+      : "ruby";
+
     context.addLayer({
       id: "ruby-installation",
       image: {
         instructions: [
-          "RUN apt-get update && apt-get install -y --no-install-recommends ruby && apt-get clean && rm -rf /var/lib/apt/lists/*",
+          `RUN apt-get update && apt-get install -y --no-install-recommends ${rubyPackage} && apt-get clean && rm -rf /var/lib/apt/lists/*`,
         ],
       },
       deploy: {
         env: {
-          RUBY_BIN_PATH: "ruby",
+          RUBY_BIN_PATH: "/usr/bin/ruby",
         },
         override: true,
       },
