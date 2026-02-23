@@ -1675,9 +1675,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"trigger-dev-ruby@workspace:.":
+"trigger-dev-rails@workspace:.":
   version: 0.0.0-use.local
-  resolution: "trigger-dev-ruby@workspace:."
+  resolution: "trigger-dev-rails@workspace:."
   dependencies:
     "@trigger.dev/build": "npm:^4.4.1"
     "@trigger.dev/core": "npm:^4.4.1"
