@@ -79,7 +79,7 @@ class RubyExtension implements BuildExtension {
       id: "ruby-installation",
       image: {
         instructions: [
-       `RUN apt-get update && apt-get install -y \
+          `RUN apt-get update && apt-get install -y \
         procps \
         libpq-dev\
         git\
@@ -109,8 +109,7 @@ class RubyExtension implements BuildExtension {
           cd .. && \
           rm -rf ruby-${rubyVersion} ruby-${rubyVersion}.tar.gz`,
           `RUN gem install bundler`,
-          `RUN ruby --version && bundle --version`
-    ,
+          `RUN ruby --version && bundle --version`,
           ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
         ],
       },
@@ -128,7 +127,7 @@ class RubyExtension implements BuildExtension {
         image: {
           instructions: [
             `COPY ${this.options.gemFile} ${this.options.gemFile}.lock .`,
-            'RUN bundle check || bundle install || bundle update'
+            "RUN bundle check || bundle install || bundle update",
           ],
         },
         deploy: {

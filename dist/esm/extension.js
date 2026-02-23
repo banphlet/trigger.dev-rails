@@ -23,7 +23,6 @@ class RubyExtension {
         }
         context.logger.debug(`Adding ${this.name} to the build`);
         const rubyVersion = this.options.rubyVersion ?? "3.2.8";
-        const rubyPackage = `ruby${rubyVersion}`;
         context.addLayer({
             id: "ruby-installation",
             image: {
@@ -75,7 +74,7 @@ class RubyExtension {
                 image: {
                     instructions: [
                         `COPY ${this.options.gemFile} ${this.options.gemFile}.lock .`,
-                        'RUN bundle check || bundle install || bundle update'
+                        "RUN bundle check || bundle install || bundle update",
                     ],
                 },
                 deploy: {
