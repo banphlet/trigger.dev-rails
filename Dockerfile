@@ -1,10 +1,10 @@
 # Sample docker file to mimic trigger.dev builds
-FROM node:22
+FROM node:20.20-bullseye-slim@sha256:d6c3903e556d4161f63af4550e76244908b6668e1a7d2983eff4873a0c2b0413
 
-# Install RVM dependencies
+# Install Ruby build dependencies
 RUN apt-get update && apt-get install -y \
+    procps \
     curl \
-    gnupg2 \
     build-essential \
     libssl-dev \
     libreadline-dev \
@@ -18,19 +18,24 @@ RUN apt-get update && apt-get install -y \
     libxslt1-dev \
     libcurl4-openssl-dev \
     libffi-dev \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Install RVM
-RUN curl -sSL https://rvm.io/mpapis.asc | gpg2 --import - && \
-    curl -sSL https://rvm.io/pkuczynski.asc | gpg2 --import - && \
-    curl -sSL https://get.rvm.io | bash -s stable
+# Install Ruby 3.2.6 from source
+ENV RUBY_VERSION=3.2.6
+RUN wget https://cache.ruby-lang.org/pub/ruby/3.2/ruby-${RUBY_VERSION}.tar.gz && \
+    tar -xzf ruby-${RUBY_VERSION}.tar.gz && \
+    cd ruby-${RUBY_VERSION} && \
+    ./configure --disable-install-doc && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && \
+    rm -rf ruby-${RUBY_VERSION} ruby-${RUBY_VERSION}.tar.gz
 
-# Add RVM to PATH and install Ruby 3.2.6 (latest 3.2.x)
-RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && \
-    rvm install 3.2.6 && \
-    rvm use 3.2.6 --default && \
-    gem install bundler"
+# Install bundler
+RUN gem install bundler
 
-RUN echo 'source /etc/profile.d/rvm.sh' >> ~/.bashrc
+# Verify installation
+RUN ruby --version && bundle --version
 
-RUN /bin/bash -l -c "ruby --version"
+# RUN bundle check || bundle install || bundle update

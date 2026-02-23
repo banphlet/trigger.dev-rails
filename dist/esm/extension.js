@@ -29,33 +29,34 @@ class RubyExtension {
             image: {
                 instructions: [
                     `RUN apt-get update && apt-get install -y \
-          procps \
-          curl \
-          gnupg2 \
-          build-essential \
-          libssl-dev \
-          libreadline-dev \
-          zlib1g-dev \
-          autoconf \
-          bison \
-          libyaml-dev \
-          libsqlite3-dev \
-          sqlite3 \
-          libxml2-dev \
-          libxslt1-dev \
-          libcurl4-openssl-dev \
-          libffi-dev \
-          && rm -rf /var/lib/apt/lists/*
+        procps \
+        curl \
+        build-essential \
+        libssl-dev \
+        libreadline-dev \
+        zlib1g-dev \
+        autoconf \
+        bison \
+        libyaml-dev \
+        libsqlite3-dev \
+        sqlite3 \
+        libxml2-dev \
+        libxslt1-dev \
+        libcurl4-openssl-dev \
+        libffi-dev \
+        wget \
+        && rm -rf /var/lib/apt/lists/*
     `,
-                    `RUN curl -sSL https://rvm.io/mpapis.asc | gpg2 --import - && \
-    curl -sSL https://rvm.io/pkuczynski.asc | gpg2 --import - && \
-    curl -sSL https://get.rvm.io | bash -s stable`,
-                    `RUN /bin/bash -l -c "source /etc/profile.d/rvm.sh && \
-    rvm install ${rubyVersion} && \
-    rvm use ${rubyVersion} --default && \
-    gem install bundler"
-    `,
-                    `RUN echo 'source /etc/profile.d/rvm.sh' >> ~/.bashrc`,
+                    `RUN wget https://cache.ruby-lang.org/pub/ruby/3.2/ruby-${rubyVersion}.tar.gz && \
+          tar -xzf ruby-${rubyVersion}.tar.gz && \
+          cd ruby-${rubyVersion} && \
+          ./configure --disable-install-doc && \
+          make -j$(nproc) && \
+          make install && \
+          cd .. && \
+          rm -rf ruby-${rubyVersion} ruby-${rubyVersion}.tar.gz`,
+                    `RUN gem install bundler`,
+                    `RUN ruby --version && bundle --version`,
                     ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
                 ],
             },
