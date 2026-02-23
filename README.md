@@ -8,6 +8,7 @@ This package provides a `rubyExtension` build extension and a `ruby.runScript` h
 
 - **Install Ruby:** Automatically installs Ruby in the container during the build process.
 - **Script execution:** Runs `.rb` script files with proper OpenTelemetry propagation.
+- **Event streaming:** Ruby scripts can send structured events back to the task — heartbeats, waits, logs, and metadata updates.
 - **Custom Ruby path:** In development, configure `devRubyBinaryPath` to point to a specific Ruby installation.
 
 ## Installation
@@ -56,19 +57,53 @@ export const myRubyTask = task({
 });
 ```
 
+### Streaming Events from Ruby (heartbeats, waits, logs, metadata)
+
+Ruby scripts can communicate back to the Trigger.dev task by requiring the bundled `trigger_dev.rb` helper. Copy it into your project next to your scripts (it is also published at `src/ruby/trigger_dev.rb` inside this package).
+
+```ruby
+# my_script.rb
+require_relative "trigger_dev"
+
+10_000.times do |i|
+  TriggerDev.heartbeat             # keep the task alive during heavy loops
+  TriggerDev.log("processing row", index: i)
+  do_heavy_work(i)
+end
+
+TriggerDev.set_metadata("progress", 1.0)
+TriggerDev.wait_for(seconds: 30)  # pause the task for 30 s, then continue
+TriggerDev.append_metadata("log", "done")
+
+puts "finished"
+```
+
+#### Available helper methods
+
+| Ruby method                                              | Trigger.dev SDK equivalent    |
+|----------------------------------------------------------|-------------------------------|
+| `TriggerDev.heartbeat`                                   | `heartbeats.yield()`          |
+| `TriggerDev.log(message, **attrs)`                       | `logger.log()`                |
+| `TriggerDev.wait_for(seconds:, minutes:, hours:, days:, weeks:, months:, years:)` | `wait.for()`                  |
+| `TriggerDev.wait_until(time_object)`                     | `wait.until()`                |
+| `TriggerDev.set_metadata(key, value)`                    | `metadata.set()`              |
+| `TriggerDev.append_metadata(key, value)`                 | `metadata.append()`           |
+
+> **Note on `wait_for` / `wait_until`:** For durations longer than 5 seconds, Trigger.dev checkpoints the task (suspends and restores it later). The Ruby process is suspended during that window and resumes automatically when the task is restored.
+
 ## API
 
 ### `ruby.runScript(scriptPath, scriptArgs?, options?)`
 
-Executes a Ruby script file.
+Executes a Ruby script file and processes any Trigger.dev events emitted by the script.
 
 | Parameter    | Type                 | Description                                        |
 |--------------|----------------------|----------------------------------------------------|
 | `scriptPath` | `string`             | Path to the `.rb` file to execute. Must exist.     |
 | `scriptArgs` | `string[]`           | Optional arguments passed to the script.           |
-| `options`    | `RubyExecOptions`    | Optional execution options (env vars, etc.).       |
+| `options`    | `RubyExecOptions`    | Optional execution options (`env`, `cwd`).         |
 
-Returns a `Promise<Result>` where `Result` has `stdout`, `stderr`, and `exitCode`.
+Returns a `Promise<RubyScriptResult>` with `{ stdout, stderr, exitCode }`.
 
 Throws an error if the script exits with a non-zero exit code.
 
@@ -91,3 +126,4 @@ Build extension that installs Ruby in the container.
 
 - Only `runScript` is supported. Inline script execution and lower-level command running are not provided.
 - This is a partial implementation and does not provide full Ruby support as an execution runtime for tasks.
+

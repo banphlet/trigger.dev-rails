@@ -8,7 +8,8 @@
   },
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "src/ruby"
   ],
   "scripts": {
     "clean": "rimraf dist",
@@ -35,8 +36,7 @@
     }
   },
   "dependencies": {
-    "@trigger.dev/core": "^4.4.1",
-    "tinyexec": "^0.3.2"
+    "@trigger.dev/core": "^4.4.1"
   },
   "devDependencies": {
     "@types/node": "20.14.14",
