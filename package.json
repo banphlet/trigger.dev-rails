@@ -1,8 +1,9 @@
 {
-  "name": "@trigger.dev/ruby",
-  "version": "4.4.1",
+  "name": "trigger-dev-ruby",
+  "version": "0.0.1",
   "description": "Ruby runtime and build extension for Trigger.dev",
   "license": "MIT",
+  "author": "banphlet (https://github.com/banphlet)",
   "publishConfig": {
     "access": "public"
   },
@@ -15,7 +16,9 @@
     "clean": "rimraf dist",
     "build": "tshy",
     "dev": "tshy --watch",
-    "typecheck": "tsc --noEmit -p tsconfig.src.json"
+    "typecheck": "tsc --noEmit -p tsconfig.src.json",
+    "prepublishOnly": "yarn clean && yarn build",
+    "publish:npm": "npm publish --access public"
   },
   "tshy": {
     "selfLink": false,
@@ -39,16 +42,16 @@
     "@trigger.dev/core": "^4.4.1"
   },
   "devDependencies": {
+    "@trigger.dev/build": "^4.4.1",
+    "@trigger.dev/sdk": "^4.4.1",
     "@types/node": "20.14.14",
     "rimraf": "6.0.1",
     "tshy": "^3.0.2",
-    "typescript": "^5.5.4",
-    "@trigger.dev/build": "^4.4.1",
-    "@trigger.dev/sdk": "^4.4.1"
+    "typescript": "^5.5.4"
   },
   "peerDependencies": {
-    "@trigger.dev/sdk": "^4.4.1",
-    "@trigger.dev/build": "^4.4.1"
+    "@trigger.dev/build": "^4.4.1",
+    "@trigger.dev/sdk": "^4.4.1"
   },
   "engines": {
     "node": ">=18.20.0"
@@ -78,5 +81,6 @@
   },
   "main": "./dist/commonjs/index.js",
   "types": "./dist/commonjs/index.d.ts",
-  "module": "./dist/esm/index.js"
+  "module": "./dist/esm/index.js",
+  "packageManager": "yarn@4.12.0"
 }

@@ -1,4 +1,4 @@
-# @trigger.dev/ruby
+# trigger-dev-ruby
 
 Ruby runtime and build extension for [Trigger.dev](https://trigger.dev).
 
@@ -9,14 +9,15 @@ This package provides a `rubyExtension` build extension and a `ruby.runScript` h
 - **Install Ruby:** Automatically installs Ruby in the container during the build process.
 - **Script execution:** Runs `.rb` script files with proper OpenTelemetry propagation.
 - **Event streaming:** Ruby scripts can send structured events back to the task — heartbeats, waits, logs, and metadata updates.
+- **Task triggering:** Trigger Trigger.dev tasks from Ruby using HTTParty integration.
 - **Custom Ruby path:** In development, configure `devRubyBinaryPath` to point to a specific Ruby installation.
 
 ## Installation
 
 ```bash
-npm install @trigger.dev/ruby
+npm install trigger-dev-ruby
 # or
-pnpm add @trigger.dev/ruby
+pnpm add trigger-dev-ruby
 ```
 
 ## Setup
@@ -25,7 +26,7 @@ Add the extension to your `trigger.config.ts` file:
 
 ```typescript
 import { defineConfig } from "@trigger.dev/sdk/v3";
-import { rubyExtension } from "@trigger.dev/ruby/extension";
+import { rubyExtension } from "trigger-dev-ruby/extension";
 
 export default defineConfig({
   project: "<project ref>",
@@ -47,7 +48,7 @@ export default defineConfig({
 
 ```typescript
 import { task } from "@trigger.dev/sdk/v3";
-import { ruby } from "@trigger.dev/ruby";
+import { ruby } from "trigger-dev-ruby";
 
 export const myRubyTask = task({
   id: "my-ruby-task",
@@ -79,7 +80,7 @@ TriggerDev.append_metadata("log", "done")
 puts "finished"
 ```
 
-#### Available helper methods
+#### Example Available helper methods
 
 | Ruby method                                              | Trigger.dev SDK equivalent    |
 |----------------------------------------------------------|-------------------------------|
@@ -89,8 +90,76 @@ puts "finished"
 | `TriggerDev.wait_until(time_object)`                     | `wait.until()`                |
 | `TriggerDev.set_metadata(key, value)`                    | `metadata.set()`              |
 | `TriggerDev.append_metadata(key, value)`                 | `metadata.append()`           |
+| `TriggerDev.trigger(task_id, payload, **options)`        | `tasks.trigger()`             |
 
 > **Note on `wait_for` / `wait_until`:** For durations longer than 5 seconds, Trigger.dev checkpoints the task (suspends and restores it later). The Ruby process is suspended during that window and resumes automatically when the task is restored.
+
+### Triggering Tasks from Ruby
+
+The `trigger_dev.rb` helper also provides a `trigger` method to trigger other Trigger.dev tasks from your Ruby scripts. This requires the `httparty` gem.
+
+#### Installation
+
+```bash
+gem install httparty
+```
+
+#### Configuration
+
+Set your Trigger.dev API key via environment variable or programmatically:
+
+```ruby
+# Option 1: Environment variable
+# export TRIGGER_API_KEY="tr_dev_xxxxx"
+
+# Option 2: Configure programmatically
+TriggerDev.configure(
+  api_key: "tr_dev_xxxxx",
+  api_url: "https://api.trigger.dev"  # Optional, defaults to https://api.trigger.dev
+)
+```
+
+#### Basic Usage
+
+```ruby
+require_relative "trigger_dev"
+
+# Configure API credentials
+TriggerDev.configure(api_key: ENV["TRIGGER_API_KEY"])
+
+# Trigger a task
+result = TriggerDev.trigger(
+  "my-task-id",
+  { user_id: 123, action: "process" }
+)
+
+puts "Run ID: #{result['id']}"
+```
+
+#### Advanced Options
+
+```ruby
+result = TriggerDev.trigger(
+  "email-task",
+  { to: "user@example.com", subject: "Hello" },
+  idempotency_key: "email-#{user_id}-#{Time.now.to_i}",
+  delay_in_seconds: 60,                    # Delay execution by 60 seconds
+  ttl: 3600,                               # Time-to-live: 1 hour
+  tags: { environment: "production" },
+  concurrency_key: "user-#{user_id}",
+  batch_id: "batch-2024-01"
+)
+```
+
+Available options:
+
+- `idempotency_key`: Unique key to prevent duplicate runs
+- `delay_in_seconds`: Delay before executing (in seconds)
+- `delay_until`: Delay until a specific time (Ruby Time object)
+- `ttl`: Time-to-live in seconds
+- `tags`: Hash of key-value tags for organization
+- `concurrency_key`: Key for controlling concurrent execution
+- `batch_id`: Identifier for batch grouping
 
 ## API
 
@@ -120,12 +189,23 @@ Build extension that installs Ruby in the container.
 
 ## Environment Variables
 
-| Variable        | Description                                           | Default           |
-|-----------------|-------------------------------------------------------|-------------------|
-| `RUBY_BIN_PATH` | Path to the Ruby binary used at runtime.              | `/usr/bin/ruby`   |
+| Variable            | Description                                           | Default                   |
+|---------------------|-------------------------------------------------------|---------------------------|
+| `RUBY_BIN_PATH`     | Path to the Ruby binary used at runtime.              | `/usr/bin/ruby`           |
+| `TRIGGER_API_KEY`   | Your Trigger.dev API key for triggering tasks.        | (none)                    |
+| `TRIGGER_API_URL`   | Trigger.dev API URL.                                  | `https://api.trigger.dev` |
 
 ## Limitations
 
 - Only `runScript` is supported. Inline script execution and lower-level command running are not provided.
 - This is a partial implementation and does not provide full Ruby support as an execution runtime for tasks.
+- Task triggering requires the `httparty` gem to be installed separately.
+
+## Author
+
+Created by [banphlet](https://github.com/banphlet)
+
+## License
+
+MIT
 
