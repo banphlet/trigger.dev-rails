@@ -32,5 +32,9 @@ export type RubyOptions = {
      * Array of custom scripts to run during the build process. Each script should be a valid shell command.
      */
     scripts?: string[];
+    /**
+     * [Optional] The path to a Gemfile that should be included in the build. If provided, the Gemfile will be copied to the container and `bundle install` will be run during the build process.
+     */
+    gemFile?: string;
 };
 export declare function rubyExtension(options?: RubyOptions): BuildExtension;

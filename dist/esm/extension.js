@@ -32,7 +32,7 @@ class RubyExtension {
                     "RUN gem install nokogiri --platform=ruby --no-document -- --use-system-libraries",
                     "RUN gem install pg",
                     "RUN gem install rake",
-                    ...this.options.scripts?.map(script => `RUN ${script}`) ?? []
+                    ...(this.options.scripts?.map((script) => `RUN ${script}`) ?? []),
                 ],
             },
             deploy: {
@@ -42,6 +42,20 @@ class RubyExtension {
                 override: true,
             },
         });
+        if (this.options.gemFile) {
+            context.addLayer({
+                id: "ruby-gem-installation",
+                image: {
+                    instructions: [
+                        `COPY ${this.options.gemFile} ${this.options.gemFile}.lock .`,
+                        'RUN bundle check || bundle install || bundle update'
+                    ],
+                },
+                deploy: {
+                    override: true,
+                },
+            });
+        }
     }
 }
 //# sourceMappingURL=extension.js.map
