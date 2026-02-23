@@ -75,8 +75,6 @@ class RubyExtension implements BuildExtension {
     context.logger.debug(`Adding ${this.name} to the build`);
     const rubyVersion = this.options.rubyVersion ?? "3.2.8";
 
-    const rubyPackage = `ruby${rubyVersion}`;
-
     context.addLayer({
       id: "ruby-installation",
       image: {
