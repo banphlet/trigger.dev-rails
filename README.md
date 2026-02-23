@@ -59,6 +59,26 @@ export const myRubyTask = task({
 });
 ```
 
+### Running a Rails Runner Script
+
+For Rails applications, use `runRailsScript` to execute scripts with `rails runner`:
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+import { ruby } from "trigger-dev-ruby";
+
+export const myRailsTask = task({
+  id: "my-rails-task",
+  run: async () => {
+    // Runs: rails runner src/ruby/rails_script.rb arg1 arg2
+    const result = await ruby.runRailsScript("src/ruby/rails_script.rb", ["arg1", "arg2"]);
+    return result.stdout;
+  },
+});
+```
+
+The method automatically detects `bin/rails` (preferred) or falls back to `rails` command. You can override this with the `RAILS_BIN_PATH` environment variable.
+
 ### Streaming Events from Ruby (heartbeats, waits, logs, metadata)
 
 Ruby scripts can communicate back to the Trigger.dev task by requiring the bundled `trigger_dev.rb` helper. Copy it into your project next to your scripts (it is also published at `src/ruby/trigger_dev.rb` inside this package).
@@ -177,6 +197,22 @@ Returns a `Promise<RubyScriptResult>` with `{ stdout, stderr, exitCode }`.
 
 Throws an error if the script exits with a non-zero exit code.
 
+### `ruby.runRailsScript(scriptPath, scriptArgs?, options?)`
+
+Executes a Ruby script using `rails runner`, providing full Rails environment context.
+
+| Parameter    | Type                 | Description                                        |
+|--------------|----------------------|----------------------------------------------------|
+| `scriptPath` | `string`             | Path to the `.rb` file to execute. Must exist.     |
+| `scriptArgs` | `string[]`           | Optional arguments passed to the script.           |
+| `options`    | `RubyExecOptions`    | Optional execution options (`env`, `cwd`).         |
+
+Returns a `Promise<RubyScriptResult>` with `{ stdout, stderr, exitCode }`.
+
+Throws an error if the script exits with a non-zero exit code.
+
+Automatically detects `bin/rails` or falls back to `rails` command. Override with `RAILS_BIN_PATH` environment variable.
+
 ### `rubyExtension(options?)`
 
 Build extension that installs Ruby in the container.
@@ -192,6 +228,7 @@ Build extension that installs Ruby in the container.
 | Variable            | Description                                           | Default                   |
 |---------------------|-------------------------------------------------------|---------------------------|
 | `RUBY_BIN_PATH`     | Path to the Ruby binary used at runtime.              | `/usr/bin/ruby`           |
+| `RAILS_BIN_PATH`    | Path to the Rails binary for `runRailsScript`.        | `bin/rails` or `rails`    |
 | `TRIGGER_API_KEY`   | Your Trigger.dev API key for triggering tasks.        | (none)                    |
 | `TRIGGER_API_URL`   | Trigger.dev API URL.                                  | `https://api.trigger.dev` |
 

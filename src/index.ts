@@ -80,10 +80,48 @@ export const ruby = {
 
     const rubyBin = process.env.RUBY_BIN_PATH || "ruby";
 
-    return await logger.trace(
+    return await _executeRubyCommand(
       "ruby.runScript()",
-      async (span) => {
-        span.setAttribute("scriptPath", scriptPath);
+      [scriptPath, ...scriptArgs],
+      rubyBin,
+      scriptPath,
+      options
+    );
+  },
+
+  async runRailsScript(
+    scriptPath: string,
+    scriptArgs: string[] = [],
+    options: RubyExecOptions = {}
+  ): Promise<RubyScriptResult> {
+    assert(scriptPath, "Script path is required");
+    assert(fs.existsSync(scriptPath), `Script does not exist: ${scriptPath}`);
+
+    // Try bin/rails first (common in Rails apps), then fall back to rails
+    const railsBin = process.env.RAILS_BIN_PATH || 
+      (fs.existsSync("bin/rails") ? "bin/rails" : "rails");
+
+    return await _executeRubyCommand(
+      "ruby.runRailsScript()",
+      ["runner", scriptPath, ...scriptArgs],
+      railsBin,
+      scriptPath,
+      options
+    );
+  },
+};
+
+async function _executeRubyCommand(
+  traceName: string,
+  commandArgs: string[],
+  binPath: string,
+  scriptPath: string,
+  options: RubyExecOptions = {}
+): Promise<RubyScriptResult> {
+  return await logger.trace(
+    traceName,
+    async (span) => {
+      span.setAttribute("scriptPath", scriptPath);
 
         const carrier = carrierFromContext();
 
@@ -100,7 +138,7 @@ export const ruby = {
         };
 
         return new Promise<RubyScriptResult>((resolve, reject) => {
-          const proc = spawn(rubyBin, [scriptPath, ...scriptArgs], {
+          const proc = spawn(binPath, commandArgs, {
             env,
             cwd: options.cwd,
             stdio: ["pipe", "pipe", "pipe"],
@@ -166,7 +204,7 @@ export const ruby = {
                 const reason =
                   exitCode === -1
                     ? `${scriptPath} was terminated by a signal`
-                    : `${scriptPath} ${scriptArgs.join(" ")} exited with a non-zero code ${exitCode}`;
+                    : `${scriptPath} exited with a non-zero code ${exitCode}`;
                 reject(new Error(`${reason}:\n${stdout}\n${stderr}`));
                 return;
               }
@@ -180,12 +218,11 @@ export const ruby = {
       },
       {
         attributes: {
-          rubyBin,
+          binPath,
           scriptPath,
-          args: scriptArgs.join(" "),
+          args: commandArgs.join(" "),
           [SemanticInternalAttributes.STYLE_ICON]: "ruby",
         },
       }
     );
-  },
-};
+}

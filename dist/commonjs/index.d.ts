@@ -16,4 +16,5 @@ export type RubyScriptResult = {
 export declare const TRIGGER_EVENT_PREFIX = "__TRIGGER_EVENT__:";
 export declare const ruby: {
     runScript(scriptPath: string, scriptArgs?: string[], options?: RubyExecOptions): Promise<RubyScriptResult>;
+    runRailsScript(scriptPath: string, scriptArgs?: string[], options?: RubyExecOptions): Promise<RubyScriptResult>;
 };

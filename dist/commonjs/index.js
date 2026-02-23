@@ -49,94 +49,105 @@ exports.ruby = {
         (0, node_assert_1.default)(scriptPath, "Script path is required");
         (0, node_assert_1.default)(node_fs_1.default.existsSync(scriptPath), `Script does not exist: ${scriptPath}`);
         const rubyBin = process.env.RUBY_BIN_PATH || "ruby";
-        return await v3_2.logger.trace("ruby.runScript()", async (span) => {
-            span.setAttribute("scriptPath", scriptPath);
-            const carrier = (0, otel_1.carrierFromContext)();
-            const env = {
-                ...process.env,
-                ...options.env,
-                TRACEPARENT: carrier["traceparent"],
-                OTEL_RESOURCE_ATTRIBUTES: `${v3_1.SemanticInternalAttributes.EXECUTION_ENVIRONMENT}=trigger,${Object.entries(v3_1.taskContext.attributes)
-                    .map(([key, value]) => `${key}=${value}`)
-                    .join(",")}`,
-                OTEL_LOG_LEVEL: "DEBUG",
-            };
-            return new Promise((resolve, reject) => {
-                const proc = (0, node_child_process_1.spawn)(rubyBin, [scriptPath, ...scriptArgs], {
-                    env,
-                    cwd: options.cwd,
-                    stdio: ["pipe", "pipe", "pipe"],
-                });
-                const stdoutLines = [];
-                const stderrChunks = [];
-                const rl = (0, node_readline_1.createInterface)({ input: proc.stdout, crlfDelay: Infinity });
-                // Process events serially to preserve ordering and allow blocking waits
-                let eventChain = Promise.resolve();
-                rl.on("line", (line) => {
-                    if (line.startsWith(exports.TRIGGER_EVENT_PREFIX)) {
-                        try {
-                            const event = JSON.parse(line.slice(exports.TRIGGER_EVENT_PREFIX.length));
-                            eventChain = eventChain.then(async () => {
-                                try {
-                                    const needsAck = await handleTriggerEvent(event);
-                                    if (needsAck && proc.stdin && !proc.stdin.destroyed) {
-                                        proc.stdin.write("__ACK__\n");
-                                    }
-                                }
-                                catch (err) {
-                                    v3_2.logger.error("Error handling Ruby trigger event", {
-                                        error: String(err),
-                                    });
-                                    // Always send ACK to unblock the Ruby process
-                                    if (proc.stdin && !proc.stdin.destroyed) {
-                                        proc.stdin.write("__ACK__\n");
-                                    }
-                                }
-                            });
-                        }
-                        catch {
-                            // Malformed event line – treat as plain output
-                            stdoutLines.push(line);
-                        }
-                    }
-                    else {
-                        stdoutLines.push(line);
-                    }
-                });
-                proc.stderr.on("data", (chunk) => {
-                    stderrChunks.push(chunk.toString());
-                });
-                proc.on("error", reject);
-                proc.on("close", async (code) => {
-                    try {
-                        // Wait for all in-flight events to finish before resolving
-                        await eventChain;
-                        const exitCode = code ?? -1;
-                        const stdout = stdoutLines.join("\n");
-                        const stderr = stderrChunks.join("");
-                        span.setAttribute("exitCode", exitCode);
-                        if (exitCode !== 0) {
-                            const reason = exitCode === -1
-                                ? `${scriptPath} was terminated by a signal`
-                                : `${scriptPath} ${scriptArgs.join(" ")} exited with a non-zero code ${exitCode}`;
-                            reject(new Error(`${reason}:\n${stdout}\n${stderr}`));
-                            return;
-                        }
-                        resolve({ stdout, stderr, exitCode });
-                    }
-                    catch (err) {
-                        reject(err);
-                    }
-                });
-            });
-        }, {
-            attributes: {
-                rubyBin,
-                scriptPath,
-                args: scriptArgs.join(" "),
-                [v3_1.SemanticInternalAttributes.STYLE_ICON]: "ruby",
-            },
-        });
+        return await _executeRubyCommand("ruby.runScript()", [scriptPath, ...scriptArgs], rubyBin, scriptPath, options);
+    },
+    async runRailsScript(scriptPath, scriptArgs = [], options = {}) {
+        (0, node_assert_1.default)(scriptPath, "Script path is required");
+        (0, node_assert_1.default)(node_fs_1.default.existsSync(scriptPath), `Script does not exist: ${scriptPath}`);
+        // Try bin/rails first (common in Rails apps), then fall back to rails
+        const railsBin = process.env.RAILS_BIN_PATH ||
+            (node_fs_1.default.existsSync("bin/rails") ? "bin/rails" : "rails");
+        return await _executeRubyCommand("ruby.runRailsScript()", ["runner", scriptPath, ...scriptArgs], railsBin, scriptPath, options);
     },
 };
+async function _executeRubyCommand(traceName, commandArgs, binPath, scriptPath, options = {}) {
+    return await v3_2.logger.trace(traceName, async (span) => {
+        span.setAttribute("scriptPath", scriptPath);
+        const carrier = (0, otel_1.carrierFromContext)();
+        const env = {
+            ...process.env,
+            ...options.env,
+            TRACEPARENT: carrier["traceparent"],
+            OTEL_RESOURCE_ATTRIBUTES: `${v3_1.SemanticInternalAttributes.EXECUTION_ENVIRONMENT}=trigger,${Object.entries(v3_1.taskContext.attributes)
+                .map(([key, value]) => `${key}=${value}`)
+                .join(",")}`,
+            OTEL_LOG_LEVEL: "DEBUG",
+        };
+        return new Promise((resolve, reject) => {
+            const proc = (0, node_child_process_1.spawn)(binPath, commandArgs, {
+                env,
+                cwd: options.cwd,
+                stdio: ["pipe", "pipe", "pipe"],
+            });
+            const stdoutLines = [];
+            const stderrChunks = [];
+            const rl = (0, node_readline_1.createInterface)({ input: proc.stdout, crlfDelay: Infinity });
+            // Process events serially to preserve ordering and allow blocking waits
+            let eventChain = Promise.resolve();
+            rl.on("line", (line) => {
+                if (line.startsWith(exports.TRIGGER_EVENT_PREFIX)) {
+                    try {
+                        const event = JSON.parse(line.slice(exports.TRIGGER_EVENT_PREFIX.length));
+                        eventChain = eventChain.then(async () => {
+                            try {
+                                const needsAck = await handleTriggerEvent(event);
+                                if (needsAck && proc.stdin && !proc.stdin.destroyed) {
+                                    proc.stdin.write("__ACK__\n");
+                                }
+                            }
+                            catch (err) {
+                                v3_2.logger.error("Error handling Ruby trigger event", {
+                                    error: String(err),
+                                });
+                                // Always send ACK to unblock the Ruby process
+                                if (proc.stdin && !proc.stdin.destroyed) {
+                                    proc.stdin.write("__ACK__\n");
+                                }
+                            }
+                        });
+                    }
+                    catch {
+                        // Malformed event line – treat as plain output
+                        stdoutLines.push(line);
+                    }
+                }
+                else {
+                    stdoutLines.push(line);
+                }
+            });
+            proc.stderr.on("data", (chunk) => {
+                stderrChunks.push(chunk.toString());
+            });
+            proc.on("error", reject);
+            proc.on("close", async (code) => {
+                try {
+                    // Wait for all in-flight events to finish before resolving
+                    await eventChain;
+                    const exitCode = code ?? -1;
+                    const stdout = stdoutLines.join("\n");
+                    const stderr = stderrChunks.join("");
+                    span.setAttribute("exitCode", exitCode);
+                    if (exitCode !== 0) {
+                        const reason = exitCode === -1
+                            ? `${scriptPath} was terminated by a signal`
+                            : `${scriptPath} exited with a non-zero code ${exitCode}`;
+                        reject(new Error(`${reason}:\n${stdout}\n${stderr}`));
+                        return;
+                    }
+                    resolve({ stdout, stderr, exitCode });
+                }
+                catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }, {
+        attributes: {
+            binPath,
+            scriptPath,
+            args: commandArgs.join(" "),
+            [v3_1.SemanticInternalAttributes.STYLE_ICON]: "ruby",
+        },
+    });
+}
 //# sourceMappingURL=index.js.map
