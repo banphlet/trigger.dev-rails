@@ -5,6 +5,7 @@ FROM node:20.20-bullseye-slim@sha256:d6c3903e556d4161f63af4550e76244908b6668e1a7
 RUN apt-get update && apt-get install -y \
     procps \
     curl \
+    git \
     build-essential \
     libssl-dev \
     libreadline-dev \

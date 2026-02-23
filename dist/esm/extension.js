@@ -30,6 +30,7 @@ class RubyExtension {
                 instructions: [
                     `RUN apt-get update && apt-get install -y \
         procps \
+        git\
         curl \
         build-essential \
         libssl-dev \
