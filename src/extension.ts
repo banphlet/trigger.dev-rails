@@ -3,6 +3,7 @@ import { BuildManifest } from "@trigger.dev/core/v3";
 import { BuildContext, BuildExtension } from "@trigger.dev/core/v3/build";
 
 export type RubyOptions = {
+  
   /**
    * [Dev-only] The path to the ruby binary.
    *
