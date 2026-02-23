@@ -1,0 +1,82 @@
+{
+  "name": "@trigger.dev/ruby",
+  "version": "4.4.1",
+  "description": "Ruby runtime and build extension for Trigger.dev",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "tshy",
+    "dev": "tshy --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.src.json"
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.src.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts",
+      "./extension": "./src/extension.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "extension": [
+        "dist/commonjs/extension.d.ts"
+      ]
+    }
+  },
+  "dependencies": {
+    "@trigger.dev/core": "^4.4.1",
+    "tinyexec": "^0.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.14",
+    "rimraf": "6.0.1",
+    "tshy": "^3.0.2",
+    "typescript": "^5.5.4",
+    "@trigger.dev/build": "^4.4.1",
+    "@trigger.dev/sdk": "^4.4.1"
+  },
+  "peerDependencies": {
+    "@trigger.dev/sdk": "^4.4.1",
+    "@trigger.dev/build": "^4.4.1"
+  },
+  "engines": {
+    "node": ">=18.20.0"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    },
+    "./extension": {
+      "import": {
+        "types": "./dist/esm/extension.d.ts",
+        "default": "./dist/esm/extension.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/extension.d.ts",
+        "default": "./dist/commonjs/extension.js"
+      }
+    }
+  },
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js"
+}
