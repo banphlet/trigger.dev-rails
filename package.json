@@ -16,7 +16,7 @@
     "build": "tshy",
     "dev": "tshy --watch",
     "typecheck": "tsc --noEmit -p tsconfig.src.json",
-    "prepublishOnly": "yarn clean && yarn build",
+    "prepublishOnly": "npm version patch -m \"v%s\" && yarn clean && yarn build",
     "publish:npm": "npm publish --access public"
   },
   "tshy": {
