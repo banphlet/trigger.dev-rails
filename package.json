@@ -4,6 +4,9 @@
   "description": "Rails runtime and build extension for Trigger.dev",
   "license": "MIT",
   "author": "banphlet (https://github.com/banphlet)",
+  "repository": {
+    "url": "https://github.com/banphlet/trigger.dev-ruby"
+  },
   "publishConfig": {
     "access": "public"
   },
