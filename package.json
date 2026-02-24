@@ -5,7 +5,7 @@
   "license": "MIT",
   "author": "banphlet (https://github.com/banphlet)",
   "repository": {
-    "url": "https://github.com/banphlet/trigger.dev-ruby"
+    "url": "https://github.com/banphlet/trigger.dev-rails"
   },
   "publishConfig": {
     "access": "public"
