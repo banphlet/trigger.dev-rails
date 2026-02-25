@@ -42,6 +42,7 @@ type TriggerEvent =
     }
   | { type: "wait.until"; date: string }
   | { type: "log"; message: string; [key: string]: unknown }
+  | { type: "log.error"; message: string; [key: string]: unknown }
   | { type: "metadata.set"; key: string; value: unknown }
   | { type: "metadata.append"; key: string; value: unknown };
 
@@ -61,6 +62,11 @@ async function handleTriggerEvent(event: TriggerEvent): Promise<boolean> {
     case "log": {
       const { type, message, ...attrs } = event;
       logger.log(message, Object.keys(attrs).length ? attrs : undefined);
+      return false;
+    }
+    case "log.error":{
+      const { type, message, ...attrs } = event;
+      logger.error(message, Object.keys(attrs).length ? attrs : undefined);
       return false;
     }
     case "metadata.set":

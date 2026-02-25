@@ -33,6 +33,11 @@ async function handleTriggerEvent(event) {
             v3_2.logger.log(message, Object.keys(attrs).length ? attrs : undefined);
             return false;
         }
+        case "log.error": {
+            const { type, message, ...attrs } = event;
+            v3_2.logger.error(message, Object.keys(attrs).length ? attrs : undefined);
+            return false;
+        }
         case "metadata.set":
             v3_2.metadata.set(event.key, event.value);
             return false;
