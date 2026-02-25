@@ -1,5 +1,5 @@
 import { SemanticInternalAttributes, taskContext } from "@trigger.dev/core/v3";
-import { logger, heartbeats, wait, metadata } from "@trigger.dev/sdk/v3";
+import { logger, heartbeats, wait, metadata, tags } from "@trigger.dev/sdk/v3";
 import { carrierFromContext } from "@trigger.dev/core/v3/otel";
 import assert from "node:assert";
 import { spawn } from "node:child_process";
@@ -37,6 +37,9 @@ async function handleTriggerEvent(event) {
             return false;
         case "metadata.append":
             metadata.append(event.key, event.value);
+            return false;
+        case "tags":
+            tags.add(event.tag);
             return false;
         default:
             return false;

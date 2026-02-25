@@ -44,6 +44,9 @@ async function handleTriggerEvent(event) {
         case "metadata.append":
             v3_2.metadata.append(event.key, event.value);
             return false;
+        case "tags":
+            v3_2.tags.add(event.tag);
+            return false;
         default:
             return false;
     }

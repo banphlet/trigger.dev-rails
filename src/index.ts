@@ -1,5 +1,5 @@
 import { SemanticInternalAttributes, taskContext } from "@trigger.dev/core/v3";
-import { logger, heartbeats, wait, metadata } from "@trigger.dev/sdk/v3";
+import { logger, heartbeats, wait, metadata, tags } from "@trigger.dev/sdk/v3";
 import { carrierFromContext } from "@trigger.dev/core/v3/otel";
 import assert from "node:assert";
 import { spawn, ChildProcess } from "node:child_process";
@@ -44,7 +44,8 @@ type TriggerEvent =
   | { type: "log"; message: string; [key: string]: unknown }
   | { type: "log.error"; message: string; [key: string]: unknown }
   | { type: "metadata.set"; key: string; value: unknown }
-  | { type: "metadata.append"; key: string; value: unknown };
+  | { type: "metadata.append"; key: string; value: unknown }
+  | { type: "tags"; tag: string };
 
 async function handleTriggerEvent(event: TriggerEvent): Promise<boolean> {
   switch (event.type) {
@@ -74,6 +75,9 @@ async function handleTriggerEvent(event: TriggerEvent): Promise<boolean> {
       return false;
     case "metadata.append":
       metadata.append(event.key, event.value as never);
+      return false;
+    case "tags":
+      tags.add(event.tag);
       return false;
     default:
       return false;
