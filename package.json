@@ -1,11 +1,11 @@
 {
   "name": "trigger-dev-rails",
-  "version": "0.0.3",
+  "version": "0.0.2",
   "description": "Rails runtime and build extension for Trigger.dev",
   "license": "MIT",
   "author": "banphlet (https://github.com/banphlet)",
   "repository": {
-    "url": "https://github.com/banphlet/trigger.dev-rails"
+    "url": "https://github.com/banphlet/trigger-dev-rails"
   },
   "publishConfig": {
     "access": "public"
@@ -19,8 +19,7 @@
     "build": "tshy",
     "dev": "tshy --watch",
     "typecheck": "tsc --noEmit -p tsconfig.src.json",
-    "prepublishOnly": "npm version patch -m \"v%s\" && yarn clean && yarn build",
-    "publish:npm": "npm publish --access public"
+    "publish": "npm publish --access public"
   },
   "tshy": {
     "selfLink": false,
